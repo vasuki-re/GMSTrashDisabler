@@ -1,0 +1,6 @@
+id=gms-trash-disabler
+name=GMSTrashDisabler
+version=1.0
+versionCode=1
+author=Vasuki
+description=Disables unnecessary services of gms which causes battery drain.
