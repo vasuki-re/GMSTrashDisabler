@@ -1,26 +1,20 @@
-name: Build and Release
+name: Build release ZIP
 
 on:
   release:
-    types: [created, published]
+    types: [published]
 
 jobs:
   build:
-    name: Create Release Zip
+    name: Build module ZIP
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Get version from release tag
-        run: echo "VERSION_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
-
-      - name: Set final zip file name
-        run: echo "FILE_NAME=GMSTrashDisabler-${{ env.VERSION_NAME }}.zip" >> $GITHUB_ENV
-
-      - name: Create Magisk Module Zip
-        run: zip ${{ env.FILE_NAME }} customize.sh module.prop gmslist.txt uninstall.sh changelog.md
+      - name: Create module ZIP
+        run: zip "GMSTrashDisabler-${{ github.ref_name }}.zip" customize.sh module.prop gmslist.txt
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
@@ -28,7 +22,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./${{ env.FILE_NAME }}
-          asset_name: ${{ env.FILE_NAME }}
+          asset_path: ./GMSTrashDisabler-${{ github.ref_name }}.zip
+          asset_name: GMSTrashDisabler-${{ github.ref_name }}.zip
           asset_content_type: application/zip
 

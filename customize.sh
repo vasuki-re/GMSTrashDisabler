@@ -5,139 +5,101 @@ SKIPUNZIP=1
 ui_print() { echo "$1"; }
 
 choose_option() {
-  ui_print "$1"
-  ui_print "Vol+ = Yes | Vol- = No (Default: $2)"
+  prompt="$1"
+  default="$2"
+  ui_print "$prompt"
+  ui_print "Vol+ = Yes | Vol- = No (Default: $default)"
   START=$(date +%s)
   while [ $(($(date +%s) - START)) -lt 30 ]; do
-    KEY=$(getevent -qlc 1)
-    echo "$KEY" | grep -q "KEY_VOLUMEUP.*DOWN" && return 0
-    echo "$KEY" | grep -q "KEY_VOLUMEDOWN.*DOWN" && return 1
+    event=$(timeout 1 getevent -qlc 1 2>/dev/null)
+    case "$event" in
+      *KEY_VOLUMEUP*DOWN*) return 0 ;;
+      *KEY_VOLUMEDOWN*DOWN*) return 1 ;;
+    esac
   done
-  ui_print "No input detected"
-  exit 1
+  ui_print "No input detected; using $default."
+  [ "$default" = "Yes" ]
 }
 
 get_cat_value() {
   case "$1" in
-    ADS) echo "$v_ads" ;;
-    TRACKING) echo "$v_tracking" ;;
-    ANALYTICS) echo "$v_analytics" ;;
-    REPORTING) echo "$v_reporting" ;;
-    BACKGROUND) echo "$v_background" ;;
-    UPDATE) echo "$v_update" ;;
-    LOCATION) echo "$v_location" ;;
-    GEOFENCE) echo "$v_geofence" ;;
-    NEARBY) echo "$v_nearby" ;;
-    CAST) echo "$v_cast" ;;
-    DISCOVERY) echo "$v_discovery" ;;
-    SYNC) echo "$v_sync" ;;
-    CLOUD) echo "$v_cloud" ;;
-    AUTH) echo "$v_auth" ;;
-    WALLET) echo "$v_wallet" ;;
-    PAYMENT) echo "$v_payment" ;;
-    WEAR) echo "$v_wear" ;;
-    FITNESS) echo "$v_fitness" ;;
+    ADS) echo "$v_ads" ;; TRACKING) echo "$v_tracking" ;; ANALYTICS) echo "$v_analytics" ;;
+    REPORTING) echo "$v_reporting" ;; BACKGROUND) echo "$v_background" ;; UPDATE) echo "$v_update" ;;
+    LOCATION) echo "$v_location" ;; GEOFENCE) echo "$v_geofence" ;; NEARBY) echo "$v_nearby" ;;
+    CAST) echo "$v_cast" ;; DISCOVERY) echo "$v_discovery" ;; SYNC) echo "$v_sync" ;;
+    CLOUD) echo "$v_cloud" ;; AUTH) echo "$v_auth" ;; WALLET) echo "$v_wallet" ;;
+    PAYMENT) echo "$v_payment" ;; WEAR) echo "$v_wear" ;; FITNESS) echo "$v_fitness" ;;
   esac
 }
 
 set_cat_value() {
   case "$1" in
-    ADS) v_ads="$2" ;;
-    TRACKING) v_tracking="$2" ;;
-    ANALYTICS) v_analytics="$2" ;;
-    REPORTING) v_reporting="$2" ;;
-    BACKGROUND) v_background="$2" ;;
-    UPDATE) v_update="$2" ;;
-    LOCATION) v_location="$2" ;;
-    GEOFENCE) v_geofence="$2" ;;
-    NEARBY) v_nearby="$2" ;;
-    CAST) v_cast="$2" ;;
-    DISCOVERY) v_discovery="$2" ;;
-    SYNC) v_sync="$2" ;;
-    CLOUD) v_cloud="$2" ;;
-    AUTH) v_auth="$2" ;;
-    WALLET) v_wallet="$2" ;;
-    PAYMENT) v_payment="$2" ;;
-    WEAR) v_wear="$2" ;;
-    FITNESS) v_fitness="$2" ;;
+    ADS) v_ads="$2" ;; TRACKING) v_tracking="$2" ;; ANALYTICS) v_analytics="$2" ;;
+    REPORTING) v_reporting="$2" ;; BACKGROUND) v_background="$2" ;; UPDATE) v_update="$2" ;;
+    LOCATION) v_location="$2" ;; GEOFENCE) v_geofence="$2" ;; NEARBY) v_nearby="$2" ;;
+    CAST) v_cast="$2" ;; DISCOVERY) v_discovery="$2" ;; SYNC) v_sync="$2" ;;
+    CLOUD) v_cloud="$2" ;; AUTH) v_auth="$2" ;; WALLET) v_wallet="$2" ;;
+    PAYMENT) v_payment="$2" ;; WEAR) v_wear="$2" ;; FITNESS) v_fitness="$2" ;;
   esac
 }
 
-unzip -o "$ZIPFILE" -d "$MODPATH" >&2
+load_preset() {
+  [ -f "$1" ] || return 1
+  while IFS='=' read -r key value; do
+    [ "$value" = "0" ] || [ "$value" = "1" ] || continue
+    case "$key" in
+      v_ads) set_cat_value ADS "$value" ;; v_tracking) set_cat_value TRACKING "$value" ;;
+      v_analytics) set_cat_value ANALYTICS "$value" ;; v_reporting) set_cat_value REPORTING "$value" ;;
+      v_background) set_cat_value BACKGROUND "$value" ;; v_update) set_cat_value UPDATE "$value" ;;
+      v_location) set_cat_value LOCATION "$value" ;; v_geofence) set_cat_value GEOFENCE "$value" ;;
+      v_nearby) set_cat_value NEARBY "$value" ;; v_cast) set_cat_value CAST "$value" ;;
+      v_discovery) set_cat_value DISCOVERY "$value" ;; v_sync) set_cat_value SYNC "$value" ;;
+      v_cloud) set_cat_value CLOUD "$value" ;; v_auth) set_cat_value AUTH "$value" ;;
+      v_wallet) set_cat_value WALLET "$value" ;; v_payment) set_cat_value PAYMENT "$value" ;;
+      v_wear) set_cat_value WEAR "$value" ;; v_fitness) set_cat_value FITNESS "$value" ;;
+    esac
+  done < "$1"
+}
 
+unzip -o "$ZIPFILE" -d "$MODPATH" >&2
 GMSLIST="$MODPATH/gmslist.txt"
+PRESET_FILE="$MODPATH/preset"
 SCRIPT_FILE="$MODPATH/action.sh"
 UNINSTALL_SCRIPT="$MODPATH/uninstall.sh"
 SERVICE_SCRIPT="$MODPATH/service.sh"
-
-[ ! -f "$GMSLIST" ] && { ui_print "Error: gmslist.txt not found!"; exit 1; }
-
-ui_print ""
-ui_print "GMSTrashDisabler"
-ui_print ""
+[ -f "$GMSLIST" ] || { ui_print "Error: gmslist.txt not found."; exit 1; }
 
 v_ads=0; v_tracking=0; v_analytics=0; v_reporting=1; v_background=1; v_update=0
 v_location=1; v_geofence=0; v_nearby=0; v_cast=0; v_discovery=0; v_sync=1
 v_cloud=1; v_auth=1; v_wallet=0; v_payment=0; v_wear=0; v_fitness=0
-
 GMS_CATEGORIES="ADS TRACKING ANALYTICS REPORTING BACKGROUND UPDATE LOCATION GEOFENCE NEARBY CAST DISCOVERY SYNC CLOUD AUTH WALLET PAYMENT WEAR FITNESS"
 
-MODID="gms-trash-disabler"
-PRESET_FILE="/data/adb/modules/$MODID/preset"
-USE_PRESET=0
-
-if [ -f "$PRESET_FILE" ]; then
-  ui_print "Preset found!"
-fi
-
+ui_print ""
+ui_print "GMSTrashDisabler"
 choose_option "Use default preset?" "Yes"
 if [ $? -eq 0 ]; then
-  USE_PRESET=1
   ui_print "Default preset loaded."
-elif [ -f "$PRESET_FILE" ]; then
-  choose_option "Use existing preset?" "Yes"
-  if [ $? -eq 0 ]; then
-    . "$PRESET_FILE"
-    USE_PRESET=1
-    cp "$PRESET_FILE" "$MODPATH/preset"
-    ui_print "Preset loaded."
-  fi
-fi
-
-if [ "$USE_PRESET" -eq 0 ]; then
+elif [ -f "$PRESET_FILE" ] && choose_option "Use saved selection?" "Yes"; then
+  load_preset "$PRESET_FILE"
+  ui_print "Saved selection loaded."
+else
   for cat in $GMS_CATEGORIES; do
-    case "$cat" in
-      ADS) emoji="🚫" ;;
-      TRACKING) emoji="👁️" ;;
-      ANALYTICS) emoji="📈" ;;
-      REPORTING) emoji="📝" ;;
-      BACKGROUND) emoji="⏱️" ;;
-      UPDATE) emoji="🔄" ;;
-      LOCATION) emoji="🗺️" ;;
-      GEOFENCE) emoji="🔷" ;;
-      NEARBY) emoji="📶" ;;
-      CAST) emoji="📺" ;;
-      DISCOVERY) emoji="🔍" ;;
-      SYNC) emoji="🔃" ;;
-      CLOUD) emoji="☁️" ;;
-      AUTH) emoji="🔐" ;;
-      WALLET) emoji="💳" ;;
-      PAYMENT) emoji="💰" ;;
-      WEAR) emoji="⌚" ;;
-      FITNESS) emoji="🏃" ;;
-    esac
-    
     current_value=$(get_cat_value "$cat")
-    default="Yes"
-    [ "$current_value" = "1" ] && default="No"
-    
-    choose_option "$emoji Disable $cat?" "$default"
+    default=Yes
+    [ "$current_value" = "1" ] && default=No
+    choose_option "Disable $cat?" "$default"
     set_cat_value "$cat" "$?"
   done
 fi
 
-if [ ! -f "$MODPATH/preset" ]; then
-  cat > "$MODPATH/preset" <<EOF
+ui_print ""
+for cat in $GMS_CATEGORIES; do
+  value=$(get_cat_value "$cat")
+  ui_print "$cat: $([ "$value" = "0" ] && echo Disable || echo Keep)"
+done
+choose_option "Proceed?" "Yes" || { ui_print "Cancelled."; exit 1; }
+
+cat > "$PRESET_FILE" <<EOF
 v_ads=$v_ads
 v_tracking=$v_tracking
 v_analytics=$v_analytics
@@ -157,17 +119,6 @@ v_payment=$v_payment
 v_wear=$v_wear
 v_fitness=$v_fitness
 EOF
-fi
-
-ui_print ""
-for cat in $GMS_CATEGORIES; do
-  value=$(get_cat_value "$cat")
-  ui_print "$cat: $([ "$value" -eq 0 ] && echo Disable || echo Keep)"
-done
-
-ui_print ""
-choose_option "Proceed?" "Yes"
-[ $? -ne 0 ] && { ui_print "Cancelled"; rm -rf "$MODPATH"; exit 1; }
 
 ui_print ""
 ui_print "Disabling services..."
@@ -211,13 +162,12 @@ until [ "$(getprop sys.boot_completed)" = "1" ]; do sleep 5; done
 SERVICE_START
 
 COUNTER=0
+while IFS='|' read -r service category; do
+  [ -n "$service" ] || continue
+  case "$service" in \#*) continue ;; esac
 
-while IFS="|" read -r SERVICE CATEGORY; do
-  [ -z "$SERVICE" ] && continue
-  echo "$SERVICE" | grep -q "^#" && continue
-  
   SHOULD_DISABLE=1
-  case "$CATEGORY" in
+  case "$category" in
     ads) SHOULD_DISABLE="$v_ads" ;;
     tracking) SHOULD_DISABLE="$v_tracking" ;;
     analytics) SHOULD_DISABLE="$v_analytics" ;;
@@ -237,13 +187,13 @@ while IFS="|" read -r SERVICE CATEGORY; do
     wear) SHOULD_DISABLE="$v_wear" ;;
     fitness) SHOULD_DISABLE="$v_fitness" ;;
   esac
-  
+
   if [ "$SHOULD_DISABLE" = "0" ]; then
-    pm disable "$SERVICE" >/dev/null 2>&1
+    pm disable "$service" >/dev/null 2>&1
     COUNTER=$((COUNTER+1))
-    echo "pm \"\$action\" \"$SERVICE\" >/dev/null 2>&1" >> "$SCRIPT_FILE"
-    echo "pm enable \"$SERVICE\"" >> "$UNINSTALL_SCRIPT"
-    echo "pm disable \"$SERVICE\"" >> "$SERVICE_SCRIPT"
+    echo "pm \"\$action\" \"$service\" >/dev/null 2>&1" >> "$SCRIPT_FILE"
+    echo "pm enable \"$service\"" >> "$UNINSTALL_SCRIPT"
+    echo "pm disable \"$service\"" >> "$SERVICE_SCRIPT"
   fi
 done < "$GMSLIST"
 
@@ -272,6 +222,5 @@ nohup sh -c "/data/adb/uninstall.sh" &
 EOF
 
 chmod 0755 "$SCRIPT_FILE" "$UNINSTALL_SCRIPT" "$SERVICE_SCRIPT"
-
 ui_print ""
 ui_print "✅ Disabled $COUNTER services"
